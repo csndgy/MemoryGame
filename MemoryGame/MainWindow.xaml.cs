@@ -39,11 +39,9 @@ namespace MemoryGame
     };
             _imagePaths = _imagePaths.OrderBy(x => Guid.NewGuid()).ToList();
 
-            // Borítókép betöltése
             _coverImage = new BitmapImage(new Uri("pack://application:,,,/Images/cover.png"));
-
-            // Táblázat feltöltése képekkel
             CardGrid.Children.Clear();
+
             foreach (var imagePath in _imagePaths)
             {
                 Button cardButton = new Button
@@ -52,22 +50,20 @@ namespace MemoryGame
                     Style = (Style)FindResource("CardStyle")
                 };
 
-                // Beállítjuk a borítóképet minden kártyánál alapértelmezettként
                 SetCardImage(cardButton, _coverImage);
-
                 cardButton.Click += CardButton_Click;
                 CardGrid.Children.Add(cardButton);
             }
 
-            // Időzítők beállítása
             _flipBackTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
             _flipBackTimer.Tick += FlipBackTimer_Tick;
 
+            _timeElapsed = 0;                  // Az időt nulláról indítjuk.
+            TimerText.Text = "Eltelt idő: 0 mp"; // A szöveget is nulláról indítjuk.
+
             _gameTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
             _gameTimer.Tick += GameTimer_Tick;
-            _timeElapsed = 0;
-            TimerText.Text = "Eltelt idő: 0 mp";
-            _gameTimer.Start();
+            _gameTimer.Start();                 // Újraindítjuk a játékidő időzítőjét.
 
             GameEndMessage.Visibility = Visibility.Collapsed;
             _firstCard = null;
@@ -144,6 +140,10 @@ namespace MemoryGame
 
         private void NewGameButton_Click(object sender, RoutedEventArgs e)
         {
+            _gameTimer.Stop();               // Megállítjuk az időzítőt.
+            _timeElapsed = 0;                // Nullára állítjuk az eltelt időt.
+            TimerText.Text = "Eltelt idő: 0 mp"; // Frissítjük a megjelenített időt.
+
             InitializeGame();
         }
     }
