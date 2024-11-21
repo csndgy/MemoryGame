@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 
@@ -10,92 +11,95 @@ namespace MemoryGame
 {
     public partial class MainWindow : Window
     {
+        private int _rows = 6;
+        private int _columns = 6;
         private List<string> _imagePaths;
         private Button _firstCard, _secondCard;
-        private DispatcherTimer _flipBackTimer;
-        private DispatcherTimer _gameTimer;
-        private int _timeElapsed;
-        private BitmapImage _coverImage;
+        private int _matchedPairs = 0;
 
         public MainWindow()
         {
             InitializeComponent();
+            LoadImagePaths();
             InitializeGame();
+        }
+
+        private void LoadImagePaths()
+        {
+            _imagePaths = new List<string>();
+            for (int i = 1; i <= 8; i++) 
+            {
+                _imagePaths.Add($"Images/image{i}.png");
+            }
         }
 
         private void InitializeGame()
         {
-            // Képek elérési útjainak megadása
-            _imagePaths = new List<string>
-    {
-        "Images/image1.png", "Images/image1.png",
-        "Images/image2.png", "Images/image2.png",
-        "Images/image3.png", "Images/image3.png",
-        "Images/image4.png", "Images/image4.png",
-        "Images/image5.png", "Images/image5.png",
-        "Images/image6.png", "Images/image6.png",
-        "Images/image7.png", "Images/image7.png",
-        "Images/image8.png", "Images/image8.png"
-    };
-            _imagePaths = _imagePaths.OrderBy(x => Guid.NewGuid()).ToList();
+            int totalCards = _rows * _columns;
 
-            _coverImage = new BitmapImage(new Uri("pack://application:,,,/Images/cover.png"));
-            CardGrid.Children.Clear();
-
-            foreach (var imagePath in _imagePaths)
+            if (_imagePaths.Count < totalCards / 2)
             {
-                Button cardButton = new Button
+                var missingImagesCount = (totalCards / 2) - _imagePaths.Count;
+                for (int i = 0; i < missingImagesCount; i++)
                 {
-                    Tag = imagePath,
-                    Style = (Style)FindResource("CardStyle")
-                };
+                    _imagePaths.Add(_imagePaths[i % _imagePaths.Count]);
+                }
+            }
 
-                SetCardImage(cardButton, _coverImage);
+            var selectedImages = _imagePaths.Take(totalCards / 2).ToList();
+            var cardImages = selectedImages.Concat(selectedImages).OrderBy(_ => Guid.NewGuid()).ToList();
+
+            CardGrid.Children.Clear();
+            CardGrid.RowDefinitions.Clear();
+            CardGrid.ColumnDefinitions.Clear();
+
+            for (int i = 0; i < _rows; i++)
+                CardGrid.RowDefinitions.Add(new RowDefinition());
+            for (int i = 0; i < _columns; i++)
+                CardGrid.ColumnDefinitions.Add(new ColumnDefinition());
+
+            foreach (var imagePath in cardImages)
+            {
+                var cardButton = new Button
+                {
+                    Tag = imagePath
+                };
                 cardButton.Click += CardButton_Click;
+                SetCardImage(cardButton, new BitmapImage(new Uri("Images/cover.png", UriKind.Relative)));
+
+                Grid.SetRow(cardButton, CardGrid.Children.Count / _columns);
+                Grid.SetColumn(cardButton, CardGrid.Children.Count % _columns);
                 CardGrid.Children.Add(cardButton);
             }
 
-            _flipBackTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
-            _flipBackTimer.Tick += FlipBackTimer_Tick;
-
-            _timeElapsed = 0;                  // Az időt nulláról indítjuk.
-            TimerText.Text = "Eltelt idő: 0 mp"; // A szöveget is nulláról indítjuk.
-
-            _gameTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
-            _gameTimer.Tick += GameTimer_Tick;
-            _gameTimer.Start();                 // Újraindítjuk a játékidő időzítőjét.
-
-            GameEndMessage.Visibility = Visibility.Collapsed;
-            _firstCard = null;
-            _secondCard = null;
+            _matchedPairs = 0;
         }
 
 
-        private void GameTimer_Tick(object sender, EventArgs e)
+        private void StartNewGame_Click(object sender, RoutedEventArgs e)
         {
-            _timeElapsed++;
-            TimerText.Text = $"Eltelt idő: {_timeElapsed} mp";
-        }
-
-        private void FlipBackTimer_Tick(object sender, EventArgs e)
-        {
-            _flipBackTimer.Stop();
-            SetCardImage(_firstCard, _coverImage);
-            SetCardImage(_secondCard, _coverImage);
-            _firstCard = null;
-            _secondCard = null;
+            if (SizeSelector.SelectedItem is ComboBoxItem selectedItem && int.TryParse(selectedItem.Tag.ToString(), out int gridSize))
+            {
+                _rows = gridSize;
+                _columns = gridSize;
+                InitializeGame();
+            }
+            else
+            {
+                MessageBox.Show("Hiba: Érvénytelen méret!", "Hiba", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
         }
 
         private void CardButton_Click(object sender, RoutedEventArgs e)
         {
-            if (_flipBackTimer.IsEnabled) return;
-            Button clickedCard = sender as Button;
-            if (clickedCard == null || clickedCard == _firstCard) return;
+            if (_firstCard != null && _secondCard != null)
+                return;
 
-            var imagePath = clickedCard.Tag.ToString();
-           var cardImage = new BitmapImage(new Uri($"pack://application:,,,/{imagePath}"));
+            var clickedCard = sender as Button;
+            if (clickedCard == null || clickedCard.Content is Image { Source: BitmapImage image } && image.UriSource.OriginalString != "Images/cover.png")
+                return;
 
-            SetCardImage(clickedCard, cardImage);
+            SetCardImage(clickedCard, new BitmapImage(new Uri(clickedCard.Tag.ToString(), UriKind.Relative)));
 
             if (_firstCard == null)
             {
@@ -104,47 +108,41 @@ namespace MemoryGame
             else
             {
                 _secondCard = clickedCard;
+
                 if (_firstCard.Tag.ToString() == _secondCard.Tag.ToString())
                 {
-                    _firstCard.IsEnabled = false;
-                    _secondCard.IsEnabled = false;
+                    _matchedPairs++;
                     _firstCard = null;
                     _secondCard = null;
-                    CheckForGameEnd();
+
+                    if (_matchedPairs == (_rows * _columns) / 2)
+                    {
+                        MessageBox.Show("Gratulálok, nyertél!");
+                    }
                 }
                 else
                 {
-                    _flipBackTimer.Start();
+                    var timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+                    timer.Tick += (_, _) =>
+                    {
+                        SetCardImage(_firstCard, new BitmapImage(new Uri("Images/cover.png", UriKind.Relative)));
+                        SetCardImage(_secondCard, new BitmapImage(new Uri("Images/cover.png", UriKind.Relative)));
+                        _firstCard = null;
+                        _secondCard = null;
+                        timer.Stop();
+                    };
+                    timer.Start();
                 }
             }
         }
-        private void SetCardImage(Button card, BitmapImage image)
+
+        private void SetCardImage(Button cardButton, BitmapImage image)
         {
-            card.Content = new Image
+            cardButton.Content = new Image
             {
                 Source = image,
-                Stretch = System.Windows.Media.Stretch.Fill
+                Stretch = Stretch.UniformToFill
             };
-        }
-
-
-        private void CheckForGameEnd()
-        {
-            if (CardGrid.Children.Cast<Button>().All(b => !b.IsEnabled))
-            {
-                _gameTimer.Stop();
-                GameEndMessage.Text = $"Gratulálunk, megtaláltad az összes párt! Idő: {_timeElapsed} mp";
-                GameEndMessage.Visibility = Visibility.Visible;
-            }
-        }
-
-        private void NewGameButton_Click(object sender, RoutedEventArgs e)
-        {
-            _gameTimer.Stop();               // Megállítjuk az időzítőt.
-            _timeElapsed = 0;                // Nullára állítjuk az eltelt időt.
-            TimerText.Text = "Eltelt idő: 0 mp"; // Frissítjük a megjelenített időt.
-
-            InitializeGame();
         }
     }
 }
