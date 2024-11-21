@@ -3,9 +3,10 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
+using System.Diagnostics;
+using System.Windows.Media; // Stopwatch
 
 namespace MemoryGame
 {
@@ -16,6 +17,7 @@ namespace MemoryGame
         private List<string> _imagePaths;
         private Button _firstCard, _secondCard;
         private int _matchedPairs = 0;
+        private Stopwatch _stopwatch; // Stopwatch objektum
 
         public MainWindow()
         {
@@ -27,7 +29,7 @@ namespace MemoryGame
         private void LoadImagePaths()
         {
             _imagePaths = new List<string>();
-            for (int i = 1; i <= 8; i++) 
+            for (int i = 1; i <= 8; i++)
             {
                 _imagePaths.Add($"Images/image{i}.png");
             }
@@ -73,8 +75,11 @@ namespace MemoryGame
             }
 
             _matchedPairs = 0;
-        }
 
+            // Indítjuk az időmérőt a játék kezdetén
+            _stopwatch = new Stopwatch();
+            _stopwatch.Start();
+        }
 
         private void StartNewGame_Click(object sender, RoutedEventArgs e)
         {
@@ -117,7 +122,11 @@ namespace MemoryGame
 
                     if (_matchedPairs == (_rows * _columns) / 2)
                     {
-                        MessageBox.Show("Gratulálok, nyertél!");
+                        // Megállítjuk az időzítőt, amikor a játékot befejezik
+                        _stopwatch.Stop();
+                        var elapsedTime = _stopwatch.Elapsed;
+                        MessageBox.Show($"Gratulálok, nyertél!\nA játékidő: {elapsedTime.Minutes:D2}:{elapsedTime.Seconds:D2}",
+                            "Gratulálunk!", MessageBoxButton.OK, MessageBoxImage.Information);
                     }
                 }
                 else

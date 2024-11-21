@@ -13,6 +13,9 @@
         <!-- Új játék indítása gomb -->
         <Button Content="Új játék indítása" Click="StartNewGame_Click" Margin="10" Width="200" />
 
+        <!-- Idő kijelzése -->
+        <TextBlock x:Name="TimeDisplay" FontSize="24" Margin="10" HorizontalAlignment="Center" />
+
         <!-- Kártyák rácsa -->
         <Grid x:Name="CardGrid" Margin="10" />
     </StackPanel>
